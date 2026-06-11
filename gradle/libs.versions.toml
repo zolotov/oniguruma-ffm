@@ -1,6 +1,6 @@
 [versions]
 jmh = "1.37"
-junit = "5.12.2"
+junit = "6.1.0"
 mavenPublish = "0.36.0"
 
 [libraries]
