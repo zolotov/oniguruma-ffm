@@ -1,7 +1,7 @@
 [versions]
 jmh = "1.37"
 junit = "5.12.2"
-mavenPublish = "0.34.0"
+mavenPublish = "0.36.0"
 
 [libraries]
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
