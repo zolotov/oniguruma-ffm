@@ -7,6 +7,18 @@
 A Java Foreign Function & Memory (FFM) based wrapper for the Oniguruma regular expression library.
 This library is primarily designed to support syntax highlighting in [IntelliJ](https://www.jetbrains.com/idea/)-based IDEs through the [`textmate-core`](https://github.com/JetBrains/intellij-community/tree/master/plugins/textmate/core) library.
 
+## Performance
+
+Quick comparison against [oniguruma-jni](https://github.com/zolotov/oniguruma-jni) (JNI + Rust `onig` crate).
+
+| Operation               | oniguruma-jni (JNI) |      oniguruma-ffm (FFM) |
+|-------------------------|--------------------:|-------------------------:|
+| `match`                 |        3,105 ops/ms |  **4,524 ops/ms (+46%)** |
+| `createRegex`           |        1,820 ops/ms |  **2,277 ops/ms (+25%)** |
+| `createString` (43 B)   |        6,967 ops/ms | **40,024 ops/ms (5.7×)** |
+| `createString` (64 KiB) |          492 ops/ms |               526 ops/ms |
+
+
 ## Installation
 
 The library is published in two flavors:
