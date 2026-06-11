@@ -1,3 +1,5 @@
+import com.vanniktech.maven.publish.JavaLibrary
+import com.vanniktech.maven.publish.JavadocJar
 import me.zolotov.oniguruma.buildscripts.Arch
 import me.zolotov.oniguruma.buildscripts.CompileOnigurumaTask
 import me.zolotov.oniguruma.buildscripts.Os
@@ -15,7 +17,10 @@ import java.net.URI
 
 plugins {
     `java-library`
+    alias(libs.plugins.github.changelog)
+    alias(libs.plugins.github.info)
     alias(libs.plugins.jmh)
+    alias(libs.plugins.maven.publish)
 }
 
 group = "me.zolotov.oniguruma"
@@ -24,6 +29,16 @@ description = """
     This library is primarily designed to support syntax highlighting in IntelliJ-based IDEs through the textmate-core library.
 """.trimIndent()
 
+github {
+    user = "zolotov"
+    license = "Apache"
+}
+
+changelog {
+    githubUser = github.user
+    futureVersionTag = project.version.toString()
+    outputFile = file("${rootProject.projectDir}/CHANGELOG.md")
+}
 
 repositories {
     mavenCentral()
@@ -268,3 +283,41 @@ compileNativeTaskByPlatform.forEach { (platform, task) ->
     }
 }
 
+mavenPublishing {
+    configure(
+        JavaLibrary(
+            javadocJar = JavadocJar.Javadoc(),
+            sourcesJar = true,
+        )
+    )
+    publishToMavenCentral(automaticRelease = true)
+    signAllPublications()
+    pom {
+        name.set(project.name)
+        description.set(project.description)
+        url.set("https://github.com/zolotov/oniguruma-ffm")
+
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                distribution.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+            }
+        }
+
+        developers {
+            developer {
+                id.set("zolotov")
+                name.set("Alexander Zolotov")
+                email.set("goldifit@gmail.com")
+                url.set("https://github.com/zolotov/")
+            }
+        }
+
+        scm {
+            url.set("https://github.com/zolotov/oniguruma-ffm")
+            connection.set("scm:git:git://github.com/zolotov/oniguruma-ffm.git")
+            developerConnection.set("scm:git:ssh://github.com/zolotov/oniguruma-ffm.git")
+        }
+    }
+}

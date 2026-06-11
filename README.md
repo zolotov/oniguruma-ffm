@@ -9,13 +9,64 @@ This library is primarily designed to support syntax highlighting in [IntelliJ](
 
 ## Installation
 
-Add the following dependency to your project:
+The library is published in two flavors:
+
+- **full** (default) — the jar bundles Oniguruma native libraries for all supported platforms,
+  ready to be loaded with `Oniguruma.createFromResources()`.
+- **slim** — the same classes without bundled native libraries. Use it when you want to provide
+  `libonig` yourself (a system-wide installation or a custom build) and keep foreign binaries
+  out of your dependency tree.
+
+### Full jar (default)
+
+The full jar is resolved whenever you do not explicitly opt in to slim: a plain Gradle dependency
+without the packaging attribute, or any Maven dependency without a classifier.
 
 ```kotlin
 dependencies {
     implementation("me.zolotov.oniguruma:oniguruma-ffm:$version")
 }
 ```
+
+```xml
+<dependency>
+    <groupId>me.zolotov.oniguruma</groupId>
+    <artifactId>oniguruma-ffm</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+
+### Slim jar
+
+Gradle consumers select the slim jar with the `me.zolotov.oniguruma.packaging` dependency attribute:
+
+```kotlin
+val onigurumaPackaging = Attribute.of("me.zolotov.oniguruma.packaging", String::class.java)
+
+dependencies {
+    implementation("me.zolotov.oniguruma:oniguruma-ffm:$version") {
+        attributes {
+            attribute(onigurumaPackaging, "slim")
+        }
+    }
+}
+```
+
+Maven consumers cannot use dependency attributes (they are part of Gradle module metadata) and
+should use the `slim` classifier instead:
+
+```xml
+<dependency>
+    <groupId>me.zolotov.oniguruma</groupId>
+    <artifactId>oniguruma-ffm</artifactId>
+    <version>${version}</version>
+    <classifier>slim</classifier>
+</dependency>
+```
+
+With the slim jar, load the library from an explicit path via `Oniguruma.createFromFile(path)`,
+or rely on `Oniguruma.createFromResources()` falling back to well-known system locations.
+
 
 ## Usage
 
@@ -26,9 +77,10 @@ import me.zolotov.oniguruma.Oniguruma;
 
 import java.nio.file.Path;
 
+// Loads a bundled native library for the current platform.
 var oniguruma = Oniguruma.createFromResources();
 
-// Or point the scaffold at a specific native library file
+// Or point the FFM bindings at a specific native library file.
 var fromFile = Oniguruma.createFromFile(Path.of("/path/to/libonig.dylib"));
 ```
 
@@ -45,7 +97,7 @@ var pattern = "to".getBytes(StandardCharsets.UTF_8);
 var text = "text to match".getBytes(StandardCharsets.UTF_8);
 
 try (var oniguruma = Oniguruma.createFromResources()) {
-   µ try (var regex = oniguruma.createRegex(pattern)) {
+    try (var regex = oniguruma.createRegex(pattern)) {
         try (var string = oniguruma.createString(text)) {
             var result = oniguruma.match(
                 regex,
@@ -71,10 +123,33 @@ closing the owning `Oniguruma` instance, and must not use a regex or string afte
 1. Clone the repository
 2. Ensure you have the following prerequisites:
     - JDK 25 or later
-3. Build the project using Gradle:
+    - CMake
+    - A native C compiler for your current platform
+3. Run tests using Gradle. This builds Oniguruma for your current platform and loads it from test resources:
+   ```bash
+   ./gradlew test
+   ```
+4. Build the project using Gradle:
    ```bash
    ./gradlew build
    ```
+
+The default build compiles only the current platform native library. CI builds and archives all supported native libraries, then assembles the final jar with:
+
+```bash
+NATIVE_BUILD_MODE=skip ./gradlew build
+```
+
+Supported bundled native platforms are:
+
+- `windows-x86_64`
+- `windows-aarch64`
+- `linux-x86_64`
+- `linux-aarch64`
+- `macos-x86_64`
+- `macos-aarch64`
+
+See [Installation](#installation) for choosing between the full jar and the slim jar without bundled native libraries.
 
 ## Contributing
 
