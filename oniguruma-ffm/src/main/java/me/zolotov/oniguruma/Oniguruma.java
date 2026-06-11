@@ -29,7 +29,7 @@ public final class Oniguruma implements AutoCloseable {
     public static Oniguruma createFromResources() {
         var arena = Arena.ofShared();
         try {
-            SymbolLookup lookup = OnigurumaNative.loadSystemLibrary(arena);
+            SymbolLookup lookup = OnigurumaNative.loadBundledOrSystemLibrary(arena);
             return new Oniguruma(arena, new OnigurumaNative(lookup));
         } catch (Throwable e) {
             arena.close();

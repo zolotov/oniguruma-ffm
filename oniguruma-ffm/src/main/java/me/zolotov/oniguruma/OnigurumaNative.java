@@ -10,9 +10,12 @@ import java.lang.foreign.StructLayout;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Locale;
 
@@ -179,6 +182,19 @@ final class OnigurumaNative {
         }
     }
 
+    static SymbolLookup loadBundledOrSystemLibrary(Arena arena) {
+        try {
+            return loadBundledLibrary(arena);
+        } catch (UnsatisfiedLinkError bundledError) {
+            try {
+                return loadSystemLibrary(arena);
+            } catch (UnsatisfiedLinkError systemError) {
+                systemError.addSuppressed(bundledError);
+                throw systemError;
+            }
+        }
+    }
+
     static SymbolLookup loadSystemLibrary(Arena arena) {
         String libName = System.mapLibraryName("onig");
         try {
@@ -198,8 +214,56 @@ final class OnigurumaNative {
         );
     }
 
+    private static SymbolLookup loadBundledLibrary(Arena arena) {
+        String libName = System.mapLibraryName("onig");
+        String resourcePath = "/native/" + currentPlatformName() + "/" + libName;
+        try (InputStream input = OnigurumaNative.class.getResourceAsStream(resourcePath)) {
+            if (input == null) {
+                throw new UnsatisfiedLinkError("Native library not found in resources: " + resourcePath);
+            }
+            Path tempDirectory = Files.createTempDirectory("oniguruma_ffm");
+            Path library = tempDirectory.resolve(libName);
+            Files.copy(input, library, StandardCopyOption.REPLACE_EXISTING);
+            library.toFile().deleteOnExit();
+            tempDirectory.toFile().deleteOnExit();
+            return SymbolLookup.libraryLookup(library, arena);
+        } catch (IOException e) {
+            UnsatisfiedLinkError error = new UnsatisfiedLinkError(
+                    "Failed to extract Oniguruma native library from resources: " + resourcePath
+            );
+            error.initCause(e);
+            throw error;
+        }
+    }
+
     static SymbolLookup loadLibraryAt(Path path, Arena arena) {
         return SymbolLookup.libraryLookup(path, arena);
+    }
+
+    private static String currentPlatformName() {
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        String osName;
+        if (os.contains("win")) {
+            osName = "windows";
+        } else if (os.contains("mac") || os.contains("darwin")) {
+            osName = "macos";
+        } else if (os.contains("linux")) {
+            osName = "linux";
+        } else {
+            throw new UnsatisfiedLinkError("Unsupported operating system: " + os);
+        }
+
+        String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
+        String archName;
+        if (arch.equals("x86_64") || arch.equals("amd64") || arch.equals("x64")) {
+            archName = "x86_64";
+        } else if (arch.equals("aarch64") || arch.equals("arm64")) {
+            archName = "aarch64";
+        } else {
+            throw new UnsatisfiedLinkError("Unsupported architecture: " + arch);
+        }
+
+        return osName + "-" + archName;
     }
 
     private static List<String> candidateDirectories() {
