@@ -7,7 +7,7 @@ mavenPublish = "0.34.0"
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
 jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
-junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "1.12.2" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "6.1.0" }
 
 [plugins]
 github-changelog = { id = "org.hildan.github.changelog", version = "2.2.0" }
