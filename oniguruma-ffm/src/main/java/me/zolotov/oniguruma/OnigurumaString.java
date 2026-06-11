@@ -1,6 +1,5 @@
 package me.zolotov.oniguruma;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
 /**
@@ -12,13 +11,11 @@ import java.lang.foreign.MemorySegment;
  */
 public final class OnigurumaString implements AutoCloseable {
     private final Oniguruma owner;
-    private final Arena arena;
     private final MemorySegment buffer;
     private final byte[] utf8Content;
 
-    OnigurumaString(Oniguruma owner, Arena arena, MemorySegment buffer, byte[] utf8Content) {
+    OnigurumaString(Oniguruma owner, MemorySegment buffer, byte[] utf8Content) {
         this.owner = owner;
-        this.arena = arena;
         this.buffer = buffer;
         this.utf8Content = utf8Content;
     }
@@ -33,7 +30,7 @@ public final class OnigurumaString implements AutoCloseable {
 
     @Override
     public void close() {
-        arena.close();
+        owner.freeStringBuffer(buffer);
     }
 
     MemorySegment buffer() {

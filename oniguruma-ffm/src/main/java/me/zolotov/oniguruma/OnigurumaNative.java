@@ -66,6 +66,8 @@ final class OnigurumaNative {
     final MethodHandle onigRegionNew;
     final MethodHandle onigRegionFree;
     final MethodHandle onigErrorCodeToStr;
+    private final MethodHandle malloc;
+    private final MethodHandle free;
 
     OnigurumaNative(SymbolLookup lookup) {
         var linker = Linker.nativeLinker();
@@ -120,7 +122,42 @@ final class OnigurumaNative {
                 Linker.Option.firstVariadicArg(2)
         );
 
+        var stdlib = linker.defaultLookup();
+        this.malloc = linker.downcallHandle(
+                stdlib.find("malloc").orElseThrow(() -> new UnsatisfiedLinkError("Symbol 'malloc' not found")),
+                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG)
+        );
+        this.free = linker.downcallHandle(
+                stdlib.find("free").orElseThrow(() -> new UnsatisfiedLinkError("Symbol 'free' not found")),
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS)
+        );
+
         ensureInitialized(linker, lookup);
+    }
+
+    /**
+     * Allocates {@code byteSize} bytes of native memory outside any arena. The returned segment
+     * stays accessible from any thread until {@link #freeNative(MemorySegment)} is called with it.
+     */
+    MemorySegment allocateNative(long byteSize) {
+        MemorySegment segment;
+        try {
+            segment = (MemorySegment) malloc.invokeExact(byteSize);
+        } catch (Throwable t) {
+            throw new OnigurumaException("Failed to allocate native memory", t);
+        }
+        if (segment.address() == 0L) {
+            throw new OutOfMemoryError("malloc(" + byteSize + ") returned null");
+        }
+        return segment.reinterpret(byteSize);
+    }
+
+    void freeNative(MemorySegment segment) {
+        try {
+            free.invokeExact(segment);
+        } catch (Throwable t) {
+            throw new OnigurumaException("Failed to free native memory", t);
+        }
     }
 
     private void ensureInitialized(Linker linker, SymbolLookup lookup) {

@@ -84,13 +84,14 @@ public final class Oniguruma implements AutoCloseable {
 
     public OnigurumaString createString(byte[] utf8Content) {
         Objects.requireNonNull(utf8Content, "utf8Content");
-        var stringArena = Arena.ofShared();
+        // malloc/free instead of a per-string Arena: closing a shared arena performs a global
+        // thread handshake, which made createString ~50x slower than the buffer copy itself.
+        MemorySegment buffer = nativeLib.allocateNative(Math.max(utf8Content.length, 1));
         try {
-            MemorySegment buffer = stringArena.allocate(Math.max(utf8Content.length, 1));
             MemorySegment.copy(utf8Content, 0, buffer, ValueLayout.JAVA_BYTE, 0, utf8Content.length);
-            return new OnigurumaString(this, stringArena, buffer, utf8Content.clone());
+            return new OnigurumaString(this, buffer, utf8Content.clone());
         } catch (Throwable e) {
-            stringArena.close();
+            nativeLib.freeNative(buffer);
             throw e;
         }
     }
@@ -185,6 +186,10 @@ public final class Oniguruma implements AutoCloseable {
         } catch (Throwable t) {
             throw new OnigurumaException("Failed to free regex handle", t);
         }
+    }
+
+    void freeStringBuffer(MemorySegment buffer) {
+        nativeLib.freeNative(buffer);
     }
 
     private OnigurumaMatchResult readRegion(MemorySegment region) {
