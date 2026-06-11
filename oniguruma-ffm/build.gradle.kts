@@ -85,10 +85,12 @@ val downloadOnigurumaSource = tasks.register("downloadOnigurumaSource") {
     inputs.property("onigurumaSourceUrl", onigurumaSourceUrl)
     outputs.file(onigurumaArchive)
 
+    val sourceUrl = onigurumaSourceUrl
+    val archiveFile = onigurumaArchive
     doLast {
-        val destination = onigurumaArchive.get().asFile
+        val destination = archiveFile.get().asFile
         destination.parentFile.mkdirs()
-        URI.create(onigurumaSourceUrl)
+        URI.create(sourceUrl)
             .toURL()
             .openStream()
             .use { input ->
@@ -186,20 +188,21 @@ val verifyNativeResources = tasks.register("verifyNativeResources") {
     dependsOn(generateNativeResources)
     inputs.property("nativeBuildMode", nativeBuildModeValue)
 
+    // Resolved at configuration time: the doLast lambda must not capture script-level
+    // properties, the configuration cache cannot serialize references to the script object.
+    val libraryFiles = nativeResourcePlatforms.map { platform ->
+        layout.buildDirectory.file("native/native/${platform.normalizedName}/${onigurumaLibraryName(platform)}")
+    }
+    val projectDirectory = layout.projectDirectory.asFile
     doLast {
-        val missingLibraries = nativeResourcePlatforms
-            .map { platform ->
-                layout.buildDirectory
-                    .file("native/native/${platform.normalizedName}/${onigurumaLibraryName(platform)}")
-                    .get()
-                    .asFile
-            }
+        val missingLibraries = libraryFiles
+            .map { it.get().asFile }
             .filterNot { it.isFile }
 
         if (missingLibraries.isNotEmpty()) {
             error(
                 "Missing bundled Oniguruma native libraries:\n" +
-                    missingLibraries.joinToString(separator = "\n") { " - ${it.relativeTo(projectDir)}" } +
+                    missingLibraries.joinToString(separator = "\n") { " - ${it.relativeTo(projectDirectory)}" } +
                     "\nBuild the current-platform library with './gradlew test', or download/build all CI native artifacts before packaging with NATIVE_BUILD_MODE=skip or -PnativeBuildMode=skip."
             )
         }
