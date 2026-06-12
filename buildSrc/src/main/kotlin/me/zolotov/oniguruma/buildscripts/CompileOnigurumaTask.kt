@@ -14,7 +14,6 @@ import org.gradle.process.ExecOperations
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.attribute.FileTime
 import javax.inject.Inject
 import kotlin.io.path.copyTo
 import kotlin.io.path.createDirectories
@@ -41,13 +40,6 @@ abstract class CompileOnigurumaTask @Inject constructor(
         }
     )
 
-    @get:Internal
-    val autotoolsBuildDirectory = projectLayout.buildDirectory.dir(
-        providerFactory.provider {
-            "autotools/${buildPlatformNativeTarget(targetPlatform.get())}/${buildType.get().lowercase()}"
-        }
-    )
-
     @get:OutputFile
     val libraryFile = providerFactory.provider {
         val platform = targetPlatform.get()
@@ -61,12 +53,7 @@ abstract class CompileOnigurumaTask @Inject constructor(
 
     @TaskAction
     fun compile() {
-        val platform = targetPlatform.get()
-        if (platform.os != Os.WINDOWS && sourceDirectory.file("configure").get().asFile.exists()) {
-            compileWithAutotools(platform)
-        } else {
-            compileWithCmake(platform)
-        }
+        compileWithCmake(targetPlatform.get())
     }
 
     private fun compileWithCmake(platform: Platform) {
@@ -109,54 +96,6 @@ abstract class CompileOnigurumaTask @Inject constructor(
         findBuiltLibrary(buildDirectory, output.fileName.toString()).copyTo(output, overwrite = true)
     }
 
-    private fun compileWithAutotools(platform: Platform) {
-        val make = execOperations.findCommand("make")
-            ?: error("Unable to find 'make'. Install command line build tools to build Oniguruma native libraries.")
-
-        val buildDirectory = autotoolsBuildDirectory.get().asFile.toPath()
-        buildDirectory.createDirectories()
-        refreshAutotoolsGeneratedFileTimestamps()
-
-        execOperations.exec {
-            workingDir = buildDirectory.toFile()
-            environment(autotoolsEnvironment(platform))
-            commandLine(
-                listOf(
-                    sourceDirectory.file("configure").get().asFile.absolutePath,
-                    "--enable-shared",
-                    "--disable-static",
-                    "--disable-dependency-tracking",
-                ) + autotoolsConfigureArguments(platform)
-            )
-        }
-
-        execOperations.exec {
-            workingDir = buildDirectory.toFile()
-            commandLine(make.toString(), "-j${Runtime.getRuntime().availableProcessors()}")
-        }
-
-        val output = libraryFile.get().toPath()
-        output.parent.createDirectories()
-        findBuiltLibrary(buildDirectory, output.fileName.toString()).copyTo(output, overwrite = true)
-    }
-
-    private fun refreshAutotoolsGeneratedFileTimestamps() {
-        val sourceRoot = sourceDirectory.get().asFile.toPath()
-        val now = FileTime.fromMillis(System.currentTimeMillis())
-        listOf(
-            "aclocal.m4",
-            "configure",
-            "Makefile.in",
-            "src/Makefile.in",
-            "src/config.h.in",
-            "test/Makefile.in",
-            "sample/Makefile.in",
-        )
-            .map(sourceRoot::resolve)
-            .filter(Files::exists)
-            .forEach { Files.setLastModifiedTime(it, now) }
-    }
-
     private fun cmakePlatformArguments(platform: Platform): List<String> {
         return when (platform.os) {
             Os.LINUX -> when (platform.arch) {
@@ -176,42 +115,6 @@ abstract class CompileOnigurumaTask @Inject constructor(
                 "-A",
                 if (platform.arch == Arch.AARCH64) "ARM64" else "x64",
             )
-        }
-    }
-
-    private fun autotoolsConfigureArguments(platform: Platform): List<String> {
-        return when (platform.os) {
-            Os.LINUX -> when (platform.arch) {
-                Arch.X86_64 -> emptyList()
-                Arch.AARCH64 -> listOf("--host=aarch64-linux-gnu")
-            }
-
-            Os.MACOS -> emptyList()
-            Os.WINDOWS -> emptyList()
-        }
-    }
-
-    private fun autotoolsEnvironment(platform: Platform): Map<String, String> {
-        return when (platform.os) {
-            Os.LINUX -> when (platform.arch) {
-                Arch.X86_64 -> emptyMap()
-                Arch.AARCH64 -> mapOf(
-                    "CC" to "aarch64-linux-gnu-gcc",
-                    "AR" to "aarch64-linux-gnu-ar",
-                    "RANLIB" to "aarch64-linux-gnu-ranlib",
-                    "STRIP" to "aarch64-linux-gnu-strip",
-                )
-            }
-
-            Os.MACOS -> {
-                val archFlag = if (platform.arch == Arch.AARCH64) "arm64" else "x86_64"
-                mapOf(
-                    "CFLAGS" to "-O3 -arch $archFlag",
-                    "LDFLAGS" to "-arch $archFlag",
-                )
-            }
-
-            Os.WINDOWS -> emptyMap()
         }
     }
 
