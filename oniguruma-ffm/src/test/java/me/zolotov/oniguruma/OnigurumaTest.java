@@ -4,32 +4,11 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OnigurumaTest {
-    @Test
-    void createRegexAndStringMakeDefensiveCopies() {
-        byte[] pattern = "[0-9]+".getBytes(StandardCharsets.UTF_8);
-        byte[] text = "12:00pm".getBytes(StandardCharsets.UTF_8);
-
-        try (var oniguruma = Oniguruma.createFromResources()) {
-            var regex = oniguruma.createRegex(pattern);
-            var string = oniguruma.createString(text);
-
-            pattern[0] = 'x';
-            text[0] = 'y';
-
-            assertArrayEquals("[0-9]+".getBytes(StandardCharsets.UTF_8), regex.pattern());
-            assertArrayEquals("12:00pm".getBytes(StandardCharsets.UTF_8), string.utf8Content());
-
-            oniguruma.freeRegex(regex);
-            oniguruma.freeString(string);
-        }
-    }
-
     @Test
     void invalidPatternRaisesRuntimeException() {
         try (var oniguruma = Oniguruma.createFromResources()) {
@@ -53,5 +32,22 @@ class OnigurumaTest {
         );
 
         assertEquals("byteOffset must be non-negative", exception.getMessage());
+    }
+
+    @Test
+    void matchRejectsByteOffsetBeyondContentLength() {
+        try (var oniguruma = Oniguruma.createFromResources()) {
+            var regex = oniguruma.createRegex("a".getBytes(StandardCharsets.UTF_8));
+            var text = oniguruma.createString(new byte[0]);
+
+            var exception = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> oniguruma.match(regex, text, new OnigurumaMatchRequest(1, true, true))
+            );
+            assertEquals("byteOffset 1 out of range [0, 0]", exception.getMessage());
+
+            oniguruma.freeRegex(regex);
+            oniguruma.freeString(text);
+        }
     }
 }

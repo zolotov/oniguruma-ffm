@@ -12,20 +12,16 @@ import java.lang.foreign.MemorySegment;
 public final class OnigurumaString implements AutoCloseable {
     private final Oniguruma owner;
     private final MemorySegment buffer;
-    private final byte[] utf8Content;
+    private final int contentLength;
 
-    OnigurumaString(Oniguruma owner, MemorySegment buffer, byte[] utf8Content) {
+    OnigurumaString(Oniguruma owner, MemorySegment buffer, int contentLength) {
         this.owner = owner;
         this.buffer = buffer;
-        this.utf8Content = utf8Content;
+        this.contentLength = contentLength;
     }
 
     public long handleId() {
         return buffer.address();
-    }
-
-    public byte[] utf8Content() {
-        return utf8Content.clone();
     }
 
     @Override
@@ -37,11 +33,11 @@ public final class OnigurumaString implements AutoCloseable {
         return buffer;
     }
 
-    Oniguruma owner() {
-        return owner;
+    int contentLength() {
+        return contentLength;
     }
 
-    int byteLength() {
-        return utf8Content.length;
+    Oniguruma owner() {
+        return owner;
     }
 }

@@ -81,6 +81,22 @@ class OnigurumaMatchingTest {
     }
 
     @Test
+    void emptyTextMatching() {
+        withMatcher("\\A\\z", matcher -> assertEquals(
+            List.of(new Capture(0, 0)),
+            matcher.match("", 0)
+        ));
+    }
+
+    @Test
+    void emptyTextMismatch() {
+        withMatcher(".", matcher -> assertEquals(
+            List.of(),
+            matcher.match("", 0)
+        ));
+    }
+
+    @Test
     void matchNonSequentGroups() {
         withMatcher(
             "^\\s*(?i:(ONBUILD)\\s+)?(?i:(ADD|ARG|CMD|COPY|ENTRYPOINT|ENV|EXPOSE|FROM|HEALTHCHECK|LABEL|MAINTAINER|RUN|SHELL|STOPSIGNAL|USER|VOLUME|WORKDIR))\\s",

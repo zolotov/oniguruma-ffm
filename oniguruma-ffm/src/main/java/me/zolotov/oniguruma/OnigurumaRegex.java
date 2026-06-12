@@ -12,20 +12,14 @@ import java.lang.foreign.MemorySegment;
 public final class OnigurumaRegex implements AutoCloseable {
     private final Oniguruma owner;
     private final MemorySegment handle;
-    private final byte[] pattern;
 
-    OnigurumaRegex(Oniguruma owner, MemorySegment handle, byte[] pattern) {
+    OnigurumaRegex(Oniguruma owner, MemorySegment handle) {
         this.owner = owner;
         this.handle = handle;
-        this.pattern = pattern;
     }
 
     public long handleId() {
         return handle.address();
-    }
-
-    public byte[] pattern() {
-        return pattern.clone();
     }
 
     @Override

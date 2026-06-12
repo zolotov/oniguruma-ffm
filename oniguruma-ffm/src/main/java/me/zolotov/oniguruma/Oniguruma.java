@@ -72,7 +72,7 @@ public final class Oniguruma implements AutoCloseable {
                 throw new OnigurumaException("Failed to compile pattern: " + nativeLib.errorMessage(rc, errorInfo));
             }
             MemorySegment handle = regexOut.get(ValueLayout.ADDRESS, 0);
-            return new OnigurumaRegex(this, handle, pattern.clone());
+            return new OnigurumaRegex(this, handle);
         } catch (Throwable t) {
             throw new OnigurumaException("Failed to compile pattern", t);
         }
@@ -89,7 +89,7 @@ public final class Oniguruma implements AutoCloseable {
         MemorySegment buffer = nativeLib.allocateNative(Math.max(utf8Content.length, 1));
         try {
             MemorySegment.copy(utf8Content, 0, buffer, ValueLayout.JAVA_BYTE, 0, utf8Content.length);
-            return new OnigurumaString(this, buffer, utf8Content.clone());
+            return new OnigurumaString(this, buffer, utf8Content.length);
         } catch (Throwable e) {
             nativeLib.freeNative(buffer);
             throw e;
@@ -125,7 +125,7 @@ public final class Oniguruma implements AutoCloseable {
             throw new IllegalArgumentException("text was created by a different Oniguruma instance");
         }
 
-        int textLength = text.byteLength();
+        int textLength = text.contentLength();
         int byteOffset = request.byteOffset();
         if (byteOffset < 0 || byteOffset > textLength) {
             throw new IllegalArgumentException(
